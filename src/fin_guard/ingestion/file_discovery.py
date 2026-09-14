@@ -1,3 +1,18 @@
+"""
+Dataset File Discovery
+----------------------
+
+This module provides utilities for discovering dataset files that are
+configured for ingestion.
+
+It scans a downloaded dataset directory and matches files against a
+configuration mapping. Each matched file is represented as a DatasetFile
+object containing the local source path and its corresponding Amazon S3
+destination prefix.
+
+This keeps file discovery independent of dataset-specific configuration,
+allowing the same ingestion logic to be reused across different datasets.
+"""
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict

@@ -35,21 +35,21 @@ transformation into Bronze, Silver, and Gold layers.
 
 from fin_guard.ingestion.kaggle_client import download_dataset
 from fin_guard.ingestion.file_discovery import discover_files
-from fin_guard.ingestion.s3_uploader import upload_file , build_s3_key
+from fin_guard.ingestion.s3_uploader import upload_file , build_s3_key , list_objects_s3
 
-DATASET_HANDLE = "belbino/global-financial-markets-dataset-2010-present"
+DATASET_HANDLE = "computingvictor/transactions-fraud-datasets"
 BUCKET_NAME = 'finguard-data'
 
 def ingest():
     dataset_path = download_dataset(DATASET_HANDLE)
 
     File_Mappings ={
-   # 'cards_data.csv' :'landing/cards_data' ,
-   # 'mcc_codes.json' : 'landing/mcc_codes' ,
-   # 'train_fraud_labels.json' : 'landing/train_fraud_labels' ,
-   # 'transactions_data.csv' : 'landing/transactions_data' ,
-  #  'users_data.csv' :'landing/users_data' 
-      'global_financial_markets_2000_Now.csv' :'landing/global_financial_markets_2000_Now'
+    'cards_data.csv' :'landing/cards_data' ,
+    'mcc_codes.json' : 'landing/mcc_codes' ,
+    'train_fraud_labels.json' : 'landing/train_fraud_labels' ,
+    'transactions_data.csv' : 'landing/transactions_data' ,
+    'users_data.csv' :'landing/users_data' 
+    #  'global_financial_markets_2000_Now.csv' :'landing/global_financial_markets_2000_Now'
      }
     dataset_files = discover_files(dataset_path, File_Mappings)
     
@@ -61,7 +61,8 @@ def ingest():
             dataset_file=dataset_file,
             bucket_name=BUCKET_NAME
         )
-    
+
+    list_objects_s3('finguard-data')
     
    
 if __name__ == "__main__":

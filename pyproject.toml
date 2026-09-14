@@ -4,8 +4,10 @@ version = "0.1.0"
 dependencies = [
     "boto3>=1.42.97",
     "botocore[crt]>=1.43.90",
+    "gnureadline>=8.3.3",
     "kagglehub>=0.3.13",
     "pandas>=2.3.3",
+    "s3fs>=0.4.2",
 ]
 
 [build-system]

@@ -1,2 +1,16 @@
 
+
+# Python
+.venv/
 **/__pycache__
+*.pyc
+**/practice.py
+
+# AWS credentials
+.aws/
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*.key

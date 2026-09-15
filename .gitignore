@@ -1,9 +1,13 @@
-
-
 # Python
 .venv/
-**/__pycache__
+**/__pycache__/
 *.pyc
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Development / practice files
 **/practice.py
 
 # AWS credentials
@@ -14,3 +18,7 @@
 .env.*
 *.pem
 *.key
+
+# IDE
+.vscode/
+.idea/

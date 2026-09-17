@@ -35,6 +35,15 @@ wheels = [
 ]
 
 [[package]]
+name = "awsgluedataplanepython"
+version = "5.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/6a/f4d510b8a1c8e3f1515b76269f7c673d434159d172f749d379aeebf1ce14/awsgluedataplanepython-5.1.0.tar.gz", hash = "sha256:c1c1241075345e438d5705692e129d09c59ac6193f2ec6df4d541ea9b9c888ff", size = 95921, upload-time = "2026-07-01T22:17:31.706Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/52/4fd8f13d2c5e647d919fd48d96093ad39b06fea0bb5f3c7588067de08951/awsgluedataplanepython-5.1.0-py3-none-any.whl", hash = "sha256:05d05e61e653aea4e39ad6ab8b278731d782c152ff64a2775c33a678f0edbd06", size = 73183, upload-time = "2026-07-01T22:17:30.266Z" },
+]
+
+[[package]]
 name = "boto3"
 version = "1.43.90"
 source = { registry = "https://pypi.org/simple" }
@@ -184,21 +193,25 @@ name = "de-project"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "awsgluedataplanepython" },
     { name = "boto3" },
     { name = "botocore", extra = ["crt"] },
     { name = "gnureadline" },
     { name = "kagglehub" },
     { name = "pandas" },
+    { name = "pyspark" },
     { name = "s3fs" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "awsgluedataplanepython", specifier = "==5.1.0" },
     { name = "boto3", specifier = ">=1.42.97" },
     { name = "botocore", extras = ["crt"], specifier = ">=1.43.90" },
     { name = "gnureadline", specifier = ">=8.3.3" },
     { name = "kagglehub", specifier = ">=0.3.13" },
     { name = "pandas", specifier = ">=2.3.3" },
+    { name = "pyspark", specifier = "==3.5.6" },
     { name = "s3fs", specifier = ">=0.4.2" },
 ]
 
@@ -377,6 +390,24 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/db/37/155788a0d8daded960375af604202805308169f9b859419ea0aa370946e2/protobuf-7.36.1-cp310-abi3-win_amd64.whl", hash = "sha256:51139351435d9b43d88a55eaa49fb6f737fbb478fb0cbf2cf694d1a04a9d3363", size = 456518, upload-time = "2026-08-31T22:40:02.494Z" },
     { url = "https://files.pythonhosted.org/packages/39/ca/c47f91d3cab175b01fd8c4f0d80fdf8613be876cc616e66ad281a59c5ddf/protobuf-7.36.1-py3-none-any.whl", hash = "sha256:7d951e46b3f963d6c264c367c437921de9d5aedd9c3f9612b9077736b4e3ad5c", size = 179813, upload-time = "2026-08-31T22:40:03.54Z" },
 ]
+
+[[package]]
+name = "py4j"
+version = "0.10.9.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/f2/b34255180c72c36ff7097f7c2cdca02abcbd89f5eebf7c7c41262a9a0637/py4j-0.10.9.7.tar.gz", hash = "sha256:0b6e5315bb3ada5cf62ac651d107bb2ebc02def3dee9d9548e3baac644ea8dbb", size = 1508234, upload-time = "2022-08-12T22:49:09.792Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/30/a58b32568f1623aaad7db22aa9eafc4c6c194b429ff35bdc55ca2726da47/py4j-0.10.9.7-py2.py3-none-any.whl", hash = "sha256:85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b", size = 200481, upload-time = "2022-08-12T22:49:07.05Z" },
+]
+
+[[package]]
+name = "pyspark"
+version = "3.5.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "py4j" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/62/36e50d38e5fe158e97cddec983b44f9417b1e205b02320e3c463b5f802fa/pyspark-3.5.6.tar.gz", hash = "sha256:f8b1c4360e41ab398c64904fae08740503bcb6bd389457d659fa6d9f2952cc48", size = 317359167, upload-time = "2025-05-27T08:24:20.82Z" }
 
 [[package]]
 name = "python-dateutil"

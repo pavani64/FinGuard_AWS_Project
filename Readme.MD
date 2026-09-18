@@ -1,19 +1,177 @@
-# FinGuard — AWS Financial Markets Data Engineering Pipeline
+# FinGuard — AWS Data Engineering Pipeline
 
-FinGuard is an end-to-end Data Engineering project that ingests financial market data from Kaggle into an AWS-based data lake.
+FinGuard is an end-to-end **AWS Data Engineering portfolio project** that builds a cloud-based data lake and processing pipeline using a financial transactions and fraud dataset.
 
-The project demonstrates how raw external datasets can be ingested, organized, validated, transformed, and prepared for analytics using modern Data Engineering practices.
+The project demonstrates how external datasets can be ingested into **Amazon S3**, profiled and validated, and transformed using **AWS Glue and Apache Spark** into **Apache Iceberg tables** following a Medallion-style architecture.
 
-The pipeline follows a layered data architecture:
+The current implementation supports:
+
+* Kaggle dataset ingestion
+* Amazon S3 Landing layer
+* Date-partitioned raw data storage
+* Automated Landing-layer data profiling
+* AWS Glue / PySpark transformations
+* Explicit Spark schemas
+* Apache Iceberg Bronze tables
+* AWS Glue Data Catalog integration
+* Bronze ingestion metadata
+
+The project will progressively introduce Silver and Gold transformations, data quality controls, orchestration, analytics, monitoring, and CI/CD.
+
+---
+
+# 1. Architecture
+
+The current implemented pipeline is:
 
 ```text
-Kaggle
-   │
-   │ Python ingestion
-   ▼
-Amazon S3
-   │
-   ├── Landing
+                    Kaggle
+                      │
+                      │ Python / KaggleHub
+                      ▼
+             ┌──────────────────┐
+             │   Python          │
+             │   Ingestion       │
+             └────────┬─────────┘
+                      │
+                      ▼
+             ┌──────────────────┐
+             │    Amazon S3     │
+             │  Landing Layer   │
+             │                  │
+             │   CSV / JSON     │
+             └────────┬─────────┘
+                      │
+                Data Profiling
+                      │
+                      ▼
+             ┌──────────────────┐
+             │    AWS Glue      │
+             │     PySpark      │
+             │                  │
+             │ Explicit Schemas │
+             │ Metadata Columns │
+             └────────┬─────────┘
+                      │
+                      ▼
+             ┌──────────────────┐
+             │      Bronze      │
+             │                  │
+             │ Apache Iceberg   │
+             │    Parquet       │
+             │ Iceberg Format 2 │
+             └────────┬─────────┘
+                      │
+                      ▼
+             ┌──────────────────┐
+             │ AWS Glue Data    │
+             │     Catalog      │
+             │                  │
+             │ finguard_bronze  │
+             └────────┬─────────┘
+                      │
+                      ▼
+              Silver — Planned
+                      │
+                      ▼
+               Gold — Planned
+                      │
+                      ▼
+             Athena / Analytics
+```
+
+---
+
+# 2. Project Objectives
+
+The objective of FinGuard is to build a realistic cloud Data Engineering pipeline demonstrating modern AWS data engineering practices.
+
+The project is designed to demonstrate:
+
+* Python-based data ingestion
+* Kaggle dataset integration
+* AWS S3 data lake design
+* Configuration-driven ingestion
+* Date-partitioned Landing data
+* Reusable Python components
+* Pandas-based data profiling
+* AWS Glue ETL
+* Apache Spark / PySpark
+* Explicit schema definition
+* Apache Iceberg
+* Parquet storage
+* AWS Glue Data Catalog
+* Medallion architecture
+* Data quality validation
+* Pipeline observability
+* Cloud-native Data Engineering practices
+
+The ingestion layer is intentionally designed so that it can support multiple datasets rather than being tightly coupled to a single source file.
+
+---
+
+# 3. Dataset
+
+The project currently uses the Kaggle:
+
+**Transactions Fraud Dataset**
+
+```text
+computingvictor/transactions-fraud-datasets
+```
+
+The dataset contains financial transaction, customer, card, merchant-category and fraud-related data.
+
+The ingestion process currently handles the following source files:
+
+```text
+cards_data.csv
+mcc_codes.json
+train_fraud_labels.json
+transactions_data.csv
+users_data.csv
+```
+
+These are mapped to corresponding S3 Landing locations:
+
+```python
+File_Mappings = {
+    "cards_data.csv":
+        "landing/cards_data",
+
+    "mcc_codes.json":
+        "landing/mcc_codes",
+
+    "train_fraud_labels.json":
+        "landing/train_fraud_labels",
+
+    "transactions_data.csv":
+        "landing/transactions_data",
+
+    "users_data.csv":
+        "landing/users_data"
+}
+```
+
+The mapping represents:
+
+```text
+Source filename
+        │
+        ▼
+S3 Landing prefix
+```
+
+This keeps dataset-specific configuration separate from the reusable ingestion implementation.
+
+---
+
+# 4. Medallion Data Architecture
+
+FinGuard uses a Medallion-style data architecture.
+
+```text
+Landing
    │
    ▼
 Bronze
@@ -23,365 +181,159 @@ Silver
    │
    ▼
 Gold
-   │
-   ▼
-Analytics / Reporting
 ```
 
-The current implementation focuses on the **Kaggle → S3 Landing Layer** ingestion process. The project will progressively introduce data validation, Apache Iceberg, transformation, orchestration, data quality, and analytical layers.
+The layers have different responsibilities.
 
 ---
 
-# 1. Project Objectives
+## 4.1 Landing Layer
 
-The main objective of FinGuard is to build a realistic cloud Data Engineering pipeline around financial datasets.
+The Landing layer contains the source data in its original format.
 
-The project is designed to demonstrate:
-
-* Python-based data ingestion
-* Kaggle dataset integration
-* AWS S3 data lake design
-* Configuration-driven ingestion
-* Date-partitioned data storage
-* Reusable Python components
-* Schema validation using Pydantic
-* Data processing using Pandas
-* Apache Iceberg table formats
-* Medallion architecture
-* Data quality validation
-* Pipeline orchestration
-* Cloud-native Data Engineering practices
-
-The architecture is intentionally designed so that the ingestion framework can support multiple datasets rather than being tightly coupled to a single CSV file.
-
----
-
-# 2. Dataset
-
-The current dataset is:
+The project currently supports:
 
 ```text
-belbino/global-financial-markets-dataset-2010-present
+CSV
+JSON
 ```
 
-It is downloaded programmatically using the Kaggle dataset API/client.
-
-The primary source file currently ingested is:
-
-```text
-global_financial_markets_2000_Now.csv
-```
-
-The ingestion logic is configuration-driven, allowing additional files or completely different Kaggle datasets to be introduced without rewriting the core ingestion logic.
-
-For example:
-
-```python
-file_mappings = {
-    "global_financial_markets_2000_Now.csv":
-        "landing/global_financial_markets_2000_Now"
-}
-```
-
-The mapping defines:
-
-```text
-Source filename → S3 destination prefix
-```
-
-This separates dataset-specific configuration from the reusable ingestion code.
-
----
-
-# 3. High-Level Architecture
-
-```text
-                 ┌─────────────────────┐
-                 │       Kaggle        │
-                 │  Financial Dataset  │
-                 └──────────┬──────────┘
-                            │
-                            │ Download
-                            ▼
-                 ┌─────────────────────┐
-                 │  Python Ingestion   │
-                 │      Pipeline       │
-                 │                     │
-                 │ • Download dataset  │
-                 │ • Discover files    │
-                 │ • Build S3 keys     │
-                 │ • Upload files      │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │      Amazon S3      │
-                 │    Landing Layer    │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │       Bronze        │
-                 │    Apache Iceberg   │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │       Silver        │
-                 │ Clean / Validated   │
-                 └──────────┬──────────┘
-                            │
-                            ▼
-                 ┌─────────────────────┐
-                 │        Gold         │
-                 │ Analytics Models    │
-                 └─────────────────────┘
-```
-
----
-
-# 4. Data Lake Architecture
-
-FinGuard follows a Medallion-style architecture consisting of Landing, Bronze, Silver, and Gold layers.
-
-## Landing Layer
-
-The Landing layer contains the original files received from the source system.
-
-Example:
+Example structure:
 
 ```text
 s3://finguard-data/
-└── landing/
-    └── global_financial_markets_2000_Now/
-        └── ingestion_date=2026-09-14/
-            └── global_financial_markets_2000_Now.csv
+
+landing/
+│
+├── cards_data/
+│   └── ingestion_date=YYYY-MM-DD/
+│       └── cards_data.csv
+│
+├── transactions_data/
+│   └── ingestion_date=YYYY-MM-DD/
+│       └── transactions_data.csv
+│
+├── users_data/
+│   └── ingestion_date=YYYY-MM-DD/
+│       └── users_data.csv
+│
+├── mcc_codes/
+│   └── ingestion_date=YYYY-MM-DD/
+│       └── mcc_codes.json
+│
+└── train_fraud_labels/
+    └── ingestion_date=YYYY-MM-DD/
+        └── train_fraud_labels.json
 ```
 
-The source data is preserved without business transformations.
+Source data is preserved before downstream transformations.
 
-Keeping the raw source data provides several advantages:
+This provides:
 
 * Source traceability
-* Pipeline replay capability
-* Easier debugging
 * Historical auditing
-* Recovery from downstream processing failures
+* Pipeline replay
+* Recovery from downstream failures
+* Easier debugging
+* Separation between ingestion and transformation
 
-The ingestion date is included in the S3 object key:
+Each ingestion run uses:
 
 ```text
 ingestion_date=YYYY-MM-DD
 ```
 
-This provides a logical partitioning structure and makes it possible to identify when a particular dataset was ingested.
+as part of the S3 object key.
 
 ---
 
-## Bronze Layer
+# 5. Kaggle → S3 Ingestion
 
-The Bronze layer represents the structured raw dataset.
-
-The planned implementation will convert source CSV/JSON files into **Apache Iceberg tables backed by Parquet files**.
-
-Conceptually:
+The ingestion pipeline is implemented in:
 
 ```text
-Landing CSV
-     │
-     ▼
-Schema validation
-     │
-     ▼
-Data type conversion
-     │
-     ▼
-Apache Iceberg Bronze Table
-     │
-     ▼
-Parquet data files in S3
+src/fin_guard/scripts/ingest.py
 ```
 
-The Bronze layer will retain the source data with minimal transformation while introducing:
-
-* Explicit schemas
-* Correct data types
-* Standardized column names
-* Ingestion metadata
-* Apache Iceberg table metadata
-
-Possible metadata columns include:
+The ingestion process performs:
 
 ```text
-ingestion_date
-source_file
-ingestion_timestamp
-```
-
----
-
-## Silver Layer
-
-The Silver layer will contain cleaned and validated financial market data.
-
-Typical processing may include:
-
-* Null handling
-* Duplicate removal
-* Data type validation
-* Date normalization
-* Numeric validation
-* Invalid-record handling
-* Standardized asset and market identifiers
-* Data quality checks
-
-For example:
-
-```text
-Bronze
+Kaggle
    │
-   ├── Remove duplicates
-   ├── Validate required fields
-   ├── Normalize dates
-   ├── Validate numeric values
-   └── Apply quality rules
-          │
-          ▼
-       Silver
+   ▼
+Download Dataset
+   │
+   ▼
+Discover Configured Files
+   │
+   ▼
+Build S3 Object Keys
+   │
+   ▼
+Upload Files
+   │
+   ▼
+S3 Landing Layer
 ```
-
-Pydantic can be used where appropriate for record/schema validation, while Pandas or a distributed processing engine can perform dataset-level transformations.
 
 ---
 
-## Gold Layer
+## Step 1 — Download the Dataset
 
-The Gold layer will contain analytics-ready datasets.
-
-Instead of exposing raw financial records directly to reporting applications, the Gold layer can contain business-oriented aggregations.
-
-Examples could include:
-
-```text
-daily_market_summary
-monthly_asset_performance
-market_volatility_summary
-asset_class_performance
-country_market_performance
-```
-
-These datasets can then be consumed by:
-
-* SQL analytics
-* BI dashboards
-* Financial reporting
-* Machine learning pipelines
-* Risk analytics
-
----
-
-# 5. Current Ingestion Workflow
-
-The current Python ingestion pipeline performs the following steps.
-
-## Step 1 — Download Dataset
-
-The configured Kaggle dataset is downloaded:
+The dataset is downloaded programmatically:
 
 ```python
 dataset_path = download_dataset(DATASET_HANDLE)
 ```
 
-The function returns the local directory containing the downloaded dataset.
+Current dataset:
+
+```python
+DATASET_HANDLE = "computingvictor/transactions-fraud-datasets"
+```
 
 ---
 
-## Step 2 — Configure Source Files
+## Step 2 — Discover Files
 
-Files that should be ingested are configured using a mapping:
-
-```python
-file_mappings = {
-    "global_financial_markets_2000_Now.csv":
-        "landing/global_financial_markets_2000_Now"
-}
-```
-
-This allows the ingestion framework to remain generic.
-
-A future dataset could therefore use:
-
-```python
-file_mappings = {
-    "transactions.csv": "landing/transactions",
-    "customers.csv": "landing/customers"
-}
-```
-
-without changing the ingestion implementation.
-
----
-
-## Step 3 — Discover Files
-
-The pipeline discovers the configured files within the downloaded dataset:
+The downloaded directory is inspected for configured source files.
 
 ```python
 dataset_files = discover_files(
     dataset_path,
-    file_mappings
+    File_Mappings
 )
 ```
 
-Each discovered file is represented as a `DatasetFile`.
+Each discovered file is represented using structured file metadata.
+
+This separates file discovery from the upload implementation.
+
+---
+
+## Step 3 — Build the S3 Object Key
+
+The S3 uploader generates date-partitioned keys.
 
 For example:
 
-```python
-@dataclass
-class DatasetFile:
-    file_path: Path
-    s3_prefix: str
+```text
+landing/cards_data/
+    ingestion_date=2026-09-18/
+        cards_data.csv
 ```
 
-Using a dataclass provides a structured representation of the file metadata passed between pipeline components.
-
----
-
-## Step 4 — Build the S3 Object Key
-
-The pipeline generates an S3 object key for each source file.
-
-Example:
+Resulting in:
 
 ```text
-landing/
-global_financial_markets_2000_Now/
-ingestion_date=2026-09-14/
-global_financial_markets_2000_Now.csv
-```
-
-Combined:
-
-```text
-landing/global_financial_markets_2000_Now/
-ingestion_date=2026-09-14/
-global_financial_markets_2000_Now.csv
-```
-
-This gives the final S3 URI:
-
-```text
-s3://finguard-data/landing/global_financial_markets_2000_Now/
-ingestion_date=2026-09-14/
-global_financial_markets_2000_Now.csv
+s3://finguard-data/landing/cards_data/ingestion_date=2026-09-18/cards_data.csv
 ```
 
 ---
 
-## Step 5 — Upload to Amazon S3
+## Step 4 — Upload to S3
 
-Each discovered file is uploaded using:
+Files are uploaded using `boto3`.
 
 ```python
 upload_file(
@@ -390,105 +342,506 @@ upload_file(
 )
 ```
 
-AWS authentication is handled through the AWS SDK credential provider chain rather than storing credentials directly in the Python source code.
+AWS authentication is handled through the standard AWS SDK credential provider chain.
 
-Credentials should **never be hardcoded or committed to Git**.
+AWS credentials are **not stored in the project source code**.
 
 ---
 
-# 6. Project Structure
+# 6. Landing Data Profiling
 
-A scalable project structure could look like:
+Before processing data into Bronze, the project provides a Landing-layer profiling utility:
+
+```text
+src/fin_guard/scripts/profile_dataset.py
+```
+
+The profiler scans supported files under:
+
+```text
+s3://finguard-data/landing/
+```
+
+and performs basic dataset-level inspection.
+
+For each dataset it reports:
+
+```text
+Sample records
+Column names
+Data types
+Null counts
+Duplicate counts
+```
+
+Example:
+
+```text
+================================================================================
+FILE: landing/cards_data/ingestion_date=2026-09-18/cards_data.csv
+================================================================================
+
+--- SAMPLE RECORDS ---
+
+...
+
+--- COLUMN NAMES ---
+
+...
+
+--- Data Types ---
+
+...
+
+--- Null Checks ---
+
+...
+
+--- Duplicate checks ---
+
+number of duplicates: ...
+```
+
+The profiler supports both:
+
+```text
+CSV
+JSON
+```
+
+including JSON structures such as MCC code mappings and nested fraud-label mappings.
+
+This provides an initial understanding of source-data structure and quality before transformation.
+
+---
+
+# 7. Landing → Bronze Processing
+
+The Landing-to-Bronze transformation is implemented using:
+
+```text
+AWS Glue
+Apache Spark / PySpark
+Apache Iceberg
+AWS Glue Data Catalog
+Amazon S3
+```
+
+Current Glue jobs:
+
+```text
+src/glue/
+│
+├── landing_to_bronze_cards.py
+│
+└── landing_to_bronze_transactions.py
+```
+
+These jobs currently process:
+
+```text
+cards_data.csv
+transactions_data.csv
+```
+
+---
+
+# 8. AWS Glue Processing
+
+Each AWS Glue job performs the following workflow:
+
+```text
+Today's Landing Partition
+          │
+          ▼
+     Read CSV
+          │
+          ▼
+Apply Explicit Spark Schema
+          │
+          ▼
+Add Bronze Metadata
+          │
+          ▼
+Create Iceberg Table
+          │
+          ▼
+Write Parquet Data to S3
+          │
+          ▼
+Register Table in
+AWS Glue Data Catalog
+```
+
+The jobs determine the current ingestion date:
+
+```python
+ingestion_date = date.today().isoformat()
+```
+
+and read the corresponding Landing partition.
+
+For example:
+
+```text
+s3://finguard-data/landing/cards_data/
+    ingestion_date=YYYY-MM-DD/
+```
+
+and:
+
+```text
+s3://finguard-data/landing/transactions_data/
+    ingestion_date=YYYY-MM-DD/
+```
+
+---
+
+# 9. Explicit Spark Schemas
+
+The Glue jobs use explicit Spark schemas rather than relying on automatic schema inference.
+
+For example, the transaction schema defines fields including:
+
+```text
+id
+date
+client_id
+card_id
+amount
+use_chip
+merchant_id
+merchant_city
+merchant_state
+zip
+mcc
+errors
+```
+
+using Spark data types such as:
+
+```text
+LongType
+IntegerType
+DoubleType
+StringType
+TimestampType
+```
+
+Similarly, the card dataset defines fields including:
+
+```text
+id
+client_id
+card_brand
+card_type
+card_number
+expires
+cvv
+has_chip
+num_cards_issued
+credit_limit
+acct_open_date
+year_pin_last_changed
+card_on_dark_web
+```
+
+Using explicit schemas provides:
+
+* Predictable data types
+* Schema control
+* Better failure detection
+* Reduced schema inference overhead
+* More deterministic downstream processing
+
+---
+
+# 10. Bronze Metadata
+
+The Glue jobs enrich source records with ingestion metadata.
+
+The following columns are currently added:
+
+```text
+ingestion_date
+bronze_ingestion_timestamp
+source_file
+```
+
+### `ingestion_date`
+
+Identifies the source ingestion date.
+
+```python
+.withColumn(
+    "ingestion_date",
+    to_date(lit(ingestion_date))
+)
+```
+
+### `bronze_ingestion_timestamp`
+
+Records when the row was processed into Bronze.
+
+```python
+.withColumn(
+    "bronze_ingestion_timestamp",
+    current_timestamp()
+)
+```
+
+### `source_file`
+
+Captures the original S3 source file.
+
+```python
+.withColumn(
+    "source_file",
+    input_file_name()
+)
+```
+
+These fields provide lineage and auditability between Landing and Bronze.
+
+---
+
+# 11. Apache Iceberg Bronze Layer
+
+The Bronze layer uses **Apache Iceberg rather than standalone Parquet files**.
+
+Iceberg manages the table while Parquet is used as the underlying data-file format.
+
+Conceptually:
+
+```text
+                 Apache Iceberg Table
+                         │
+           ┌─────────────┴─────────────┐
+           │                           │
+           ▼                           ▼
+    Iceberg Metadata              Parquet Files
+           │                           │
+           └─────────────┬─────────────┘
+                         ▼
+                      Amazon S3
+```
+
+Current Bronze storage locations include:
+
+```text
+s3://finguard-data/bronze/cards_data/
+```
+
+and:
+
+```text
+s3://finguard-data/bronze/transactions_data/
+```
+
+---
+
+# 12. Iceberg Table Configuration
+
+The current implementation uses:
+
+```text
+Apache Iceberg format-version = 2
+```
+
+For example:
+
+```python
+.tableProperty(
+    "format-version",
+    "2"
+)
+```
+
+The tables are partitioned by:
+
+```text
+ingestion_date
+```
+
+using:
+
+```python
+.partitionedBy(
+    col("ingestion_date")
+)
+```
+
+Iceberg provides table-management capabilities beyond simply storing Parquet files, including:
+
+* ACID transactions
+* Schema evolution
+* Partition evolution
+* Snapshot management
+* Time travel
+* Reliable metadata management
+* Atomic table operations
+
+---
+
+# 13. AWS Glue Data Catalog
+
+Bronze Iceberg tables are registered with the AWS Glue Data Catalog.
+
+The catalog database is:
+
+```text
+finguard_bronze
+```
+
+Current tables are:
+
+```text
+finguard_bronze.cards_data
+finguard_bronze.transactions
+```
+
+The Spark identifiers used by the Glue jobs are:
+
+```text
+glue_catalog.finguard_bronze.cards_data
+```
+
+and:
+
+```text
+glue_catalog.finguard_bronze.transactions
+```
+
+This provides a centralized metadata catalog that can later be queried by engines such as Amazon Athena.
+
+---
+
+# 14. Current Bronze Tables
+
+## Cards
+
+Source:
+
+```text
+landing/cards_data/
+```
+
+Glue job:
+
+```text
+landing_to_bronze_cards.py
+```
+
+Iceberg table:
+
+```text
+finguard_bronze.cards_data
+```
+
+Storage:
+
+```text
+s3://finguard-data/bronze/cards_data/
+```
+
+---
+
+## Transactions
+
+Source:
+
+```text
+landing/transactions_data/
+```
+
+Glue job:
+
+```text
+landing_to_bronze_transactions.py
+```
+
+Iceberg table:
+
+```text
+finguard_bronze.transactions
+```
+
+Storage:
+
+```text
+s3://finguard-data/bronze/transactions_data/
+```
+
+---
+
+# 15. Current Project Structure
+
+The repository currently contains:
 
 ```text
 FinGuard_AWS_Project/
 │
-├── README.md
-├── pyproject.toml
 ├── .gitignore
+├── Readme.MD
+├── pyproject.toml
+├── uv.lock
 │
-├── src/
-│   └── finguard/
-│       │
-│       ├── __init__.py
-│       │
-│       ├── ingestion/
-│       │   ├── __init__.py
-│       │   ├── kaggle_client.py
-│       │   ├── file_discovery.py
-│       │   └── s3_uploader.py
-│       │
-│       ├── models/
-│       │   └── dataset_file.py
-│       │
-│       ├── validation/
-│       │   └── schemas.py
-│       │
-│       └── transformations/
-│           ├── bronze.py
-│           ├── silver.py
-│           └── gold.py
-│
-├── scripts/
-│   └── ingest.py
-│
-├── tests/
-│   ├── test_file_discovery.py
-│   ├── test_s3_key.py
-│   └── test_validation.py
-│
-└── config/
-    └── datasets.yaml
+└── src/
+    │
+    ├── fin_guard/
+    │   │
+    │   ├── __init__.py
+    │   │
+    │   ├── ingestion/
+    │   │   │
+    │   │   ├── __init__.py
+    │   │   ├── file_discovery.py
+    │   │   ├── kaggle_client.py
+    │   │   └── s3_uploader.py
+    │   │
+    │   └── scripts/
+    │       │
+    │       ├── ingest.py
+    │       └── profile_dataset.py
+    │
+    └── glue/
+        │
+        ├── landing_to_bronze_cards.py
+        └── landing_to_bronze_transactions.py
 ```
-
-As the project grows, dataset-specific configuration can be moved from Python into YAML.
-
-For example:
-
-```yaml
-dataset:
-  name: global_financial_markets
-  kaggle_handle: belbino/global-financial-markets-dataset-2010-present
-
-files:
-  global_financial_markets_2000_Now.csv:
-    s3_prefix: landing/global_financial_markets_2000_Now
-```
-
-This would make the ingestion pipeline completely configuration-driven.
 
 ---
 
-# 7. Technology Stack
+# 16. Technology Stack
 
-| Technology     | Purpose                                  |
-| -------------- | ---------------------------------------- |
-| Python         | Data ingestion and processing            |
-| uv             | Python dependency/environment management |
-| Kaggle         | External dataset source                  |
-| Pandas         | Data analysis and transformations        |
-| Pydantic       | Schema and field validation              |
-| AWS S3         | Data lake storage                        |
-| boto3          | AWS SDK / S3 interaction                 |
-| Apache Parquet | Columnar storage format                  |
-| Apache Iceberg | Data lake table format                   |
-| Git            | Source control                           |
+| Technology             | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| Python                 | Ingestion and data utilities             |
+| uv                     | Python dependency/environment management |
+| Kaggle / KaggleHub     | External dataset source                  |
+| Pandas                 | Landing-layer profiling                  |
+| boto3                  | AWS SDK / S3 interaction                 |
+| Amazon S3              | Data lake storage                        |
+| AWS Glue               | Managed ETL processing                   |
+| Apache Spark / PySpark | Distributed data transformation          |
+| Apache Parquet         | Physical columnar data storage           |
+| Apache Iceberg         | Data lake table format                   |
+| AWS Glue Data Catalog  | Iceberg table metadata/catalog           |
+| Git / GitHub           | Source control                           |
 
-Future components may include:
+Planned technologies include:
 
 ```text
-AWS Glue
 Amazon Athena
 Apache Airflow
-PySpark
-AWS Lambda
-CloudWatch
+AWS CloudWatch
 GitHub Actions
+Infrastructure as Code
 ```
 
 ---
 
-# 8. Running the Project
+# 17. Running the Local Ingestion Pipeline
 
 ## Prerequisites
 
@@ -502,15 +855,13 @@ AWS CLI
 Kaggle access
 ```
 
-AWS credentials must be configured before running the ingestion process.
-
-Verify the current AWS identity using:
+Verify the AWS identity:
 
 ```bash
 aws sts get-caller-identity
 ```
 
-Verify the configured region:
+Verify the configured AWS region:
 
 ```bash
 aws configure get region
@@ -526,10 +877,11 @@ Using `uv`:
 uv sync
 ```
 
-or when adding dependencies:
+Dependencies are managed through:
 
-```bash
-uv add boto3 pandas pydantic kagglehub
+```text
+pyproject.toml
+uv.lock
 ```
 
 ---
@@ -539,268 +891,581 @@ uv add boto3 pandas pydantic kagglehub
 From the project root:
 
 ```bash
-uv run python scripts/ingest.py
+uv run python src/fin_guard/scripts/ingest.py
 ```
 
-The pipeline should:
+The pipeline performs:
 
 ```text
-1. Download the Kaggle dataset
+1. Download Kaggle dataset
 2. Discover configured files
-3. Generate S3 object keys
-4. Upload the files to S3
+3. Build S3 object keys
+4. Upload source files to Landing
+5. List uploaded S3 objects
 ```
 
-Example console output:
+---
+
+# 18. Run the Landing Data Profiler
+
+The Landing profiler can be executed using:
+
+```bash
+uv run python src/fin_guard/scripts/profile_dataset.py
+```
+
+It scans:
 
 ```text
-File: global_financial_markets_2000_Now.csv
+s3://finguard-data/landing/
+```
 
-S3 destination:
-landing/global_financial_markets_2000_Now
+and reports:
 
-S3 key:
-landing/global_financial_markets_2000_Now/
-ingestion_date=2026-09-14/
-global_financial_markets_2000_Now.csv
+```text
+Sample records
+Columns
+Data types
+Null values
+Duplicate records
+```
+
+for supported source files.
+
+---
+
+# 19. Running AWS Glue Jobs
+
+## Deploying and Updating AWS Glue Jobs Using AWS CLI
+
+AWS Glue PySpark scripts are developed locally in **VS Code** and deployed to Amazon S3 using the **AWS Command Line Interface (AWS CLI)**.
+
+The deployment flow is:
+
+```text
+VS Code / Local Development
+          │
+          ▼
+     src/glue/
+          │
+          │ AWS CLI
+          ▼
+  S3 glue-scripts/
+          │
+          ▼
+      AWS Glue Job
+          │
+          ▼
+Landing → Bronze Iceberg
+```
+
+### Upload Glue Scripts to S3
+
+After developing or modifying a Glue script locally, the latest version is copied to the S3 Glue scripts location using the AWS CLI.
+
+Transactions:
+
+```bash
+aws s3 cp \
+  src/glue/landing_to_bronze_transactions.py \
+  s3://finguard-data/glue-scripts/landing_to_bronze_transactions.py
+```
+
+Cards:
+
+```bash
+aws s3 cp \
+  src/glue/landing_to_bronze_cards.py \
+  s3://finguard-data/glue-scripts/landing_to_bronze_cards.py
+```
+
+The Glue scripts are stored in:
+
+```text
+s3://finguard-data/glue-scripts/
+├── landing_to_bronze_cards.py
+└── landing_to_bronze_transactions.py
+```
+
+### Updating AWS Glue Jobs
+
+The AWS CLI is also used to update existing Glue jobs so that they reference the latest script stored in Amazon S3.
+
+General command:
+
+```bash
+aws glue update-job \
+  --job-name <glue-job-name> \
+  --job-update '{
+    "Command": {
+      "Name": "glueetl",
+      "ScriptLocation": "s3://finguard-data/glue-scripts/<script-name>.py",
+      "PythonVersion": "3"
+    }
+  }'
+```
+
+This provides a repeatable command-line deployment workflow:
+
+```text
+Develop / update PySpark script in VS Code
+                    │
+                    ▼
+Commit source code to Git
+                    │
+                    ▼
+Upload script to S3 using AWS CLI
+                    │
+                    ▼
+Update AWS Glue job using AWS CLI
+                    │
+                    ▼
+Run Glue ETL job
+                    │
+                    ▼
+Transform Landing data
+                    │
+                    ▼
+Write Bronze Apache Iceberg table
+```
+
+This approach keeps the Glue ETL source code version-controlled in Git while using Amazon S3 as the deployment location for AWS Glue. It also provides a foundation for automating Glue deployments through CI/CD in future iterations of the project.
+
+---
+
+# 20. Current End-to-End Data Flow
+
+The implemented pipeline can currently be summarized as:
+
+```text
+computingvictor/transactions-fraud-datasets
+                    │
+                    ▼
+              KaggleHub
+                    │
+                    ▼
+             Python Ingestion
+                    │
+                    ▼
+              Amazon S3
+             Landing Layer
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+          ▼                   ▼
+     cards_data          transactions_data
+          │                   │
+          ▼                   ▼
+     AWS Glue             AWS Glue
+       PySpark              PySpark
+          │                   │
+          ▼                   ▼
+   Explicit Schema      Explicit Schema
+          │                   │
+          ▼                   ▼
+    Bronze Metadata      Bronze Metadata
+          │                   │
+          ▼                   ▼
+     Iceberg v2           Iceberg v2
+          │                   │
+          ▼                   ▼
+   bronze/cards_data   bronze/transactions_data
+          │                   │
+          └─────────┬─────────┘
+                    ▼
+            AWS Glue Catalog
+                    │
+                    ▼
+             finguard_bronze
 ```
 
 ---
 
-# 9. Design Decisions
+# 21. Why Keep a Landing Layer?
 
-## Why keep a Landing layer?
+The Landing layer preserves the original source data before transformations.
 
-The Landing layer preserves the source data before transformations are applied.
+This enables:
 
-This makes the pipeline replayable and provides traceability between the original source and downstream datasets.
+* Pipeline replay
+* Auditing
+* Source traceability
+* Debugging
+* Recovery from downstream failures
+* Reprocessing with updated business rules
+
+The Landing layer therefore acts as the immutable entry point into the data lake.
 
 ---
 
-## Why partition by ingestion date?
+# 22. Why Partition Landing Data by Ingestion Date?
 
-Using:
+The Landing S3 layout uses:
 
 ```text
 ingestion_date=YYYY-MM-DD
 ```
 
-allows individual ingestion runs to be logically separated.
+This allows ingestion runs to be logically separated.
 
-It also supports:
+It supports:
 
-* Incremental processing
 * Historical investigation
+* Incremental processing
 * Pipeline replay
 * Auditing
-* Partition pruning in downstream systems where applicable
+* Easier identification of ingestion batches
 
 ---
 
-## Why use configuration-driven file mappings?
+# 23. Why Apache Iceberg?
 
-Hardcoding dataset-specific behaviour inside ingestion functions makes pipelines difficult to reuse.
+Parquet provides an efficient columnar file format, but Parquet alone does not provide table-level transaction management.
 
-Instead:
+Apache Iceberg adds a table-management layer over the underlying Parquet files.
 
-```python
-filename → destination
-```
-
-is treated as configuration.
-
-The same ingestion engine can therefore support different datasets.
-
----
-
-## Why Apache Iceberg?
-
-Simply storing Parquet files in S3 provides efficient columnar storage, but does not by itself provide database-like table management.
-
-Apache Iceberg adds capabilities such as:
-
-* Schema evolution
-* Partition evolution
-* ACID transactions
-* Snapshot management
-* Time travel
-* Reliable table metadata
-* Better management of large analytical datasets
-
-Therefore the planned Bronze/Silver/Gold layers will use Iceberg rather than treating S3 as only a collection of Parquet files.
-
----
-
-# 10. Data Quality Strategy
-
-Data quality validation will be introduced before records progress into curated layers.
-
-Example rules:
+This provides capabilities such as:
 
 ```text
-Required fields must not be null
-Dates must use valid formats
-Prices must be numeric
-Volumes must not be negative
-Duplicate records should be identified
-Unexpected schema changes should be detected
+ACID transactions
+Schema evolution
+Partition evolution
+Snapshots
+Time travel
+Atomic writes
+Metadata management
 ```
 
-Pydantic can validate selected record-level fields:
+This makes the Bronze layer behave more like a managed analytical table rather than simply a directory containing Parquet files.
 
-```python
-class MarketRecord(BaseModel):
-    symbol: str
-    price: float
-    volume: int
-```
+---
 
-Pandas can perform dataset-level checks such as:
+# 24. Data Quality Strategy
+
+The project currently includes basic Landing-layer profiling.
+
+Current profiling includes:
 
 ```text
-null counts
-duplicate detection
-source/target comparison
-statistical validation
+Schema inspection
+Data type inspection
+Null counts
+Duplicate detection
+Sample record inspection
 ```
 
-Invalid records may eventually be written to a quarantine location:
+Future data-quality rules will include:
+
+```text
+Required-field validation
+Business-rule validation
+Data type validation
+Referential integrity
+Invalid-record handling
+Source-to-target reconciliation
+Schema drift detection
+```
+
+Pydantic may be used for selected field-level validation, while Pandas and Spark can perform dataset-level validation.
+
+Invalid records may eventually be written to a quarantine area:
 
 ```text
 s3://finguard-data/quarantine/
 ```
 
-rather than silently discarded.
+rather than being silently discarded.
 
 ---
 
-# 11. Planned Architecture
+# 25. Silver Layer — Planned
 
-The target architecture is:
+The Silver layer will transform Bronze data into cleaned, validated and standardized datasets.
+
+Potential transformations include:
 
 ```text
-                         Kaggle
-                            │
-                            ▼
-                    Python Ingestion
-                            │
-                            ▼
-                 ┌──────────────────┐
-                 │    S3 Landing    │
-                 │   CSV / JSON     │
-                 └────────┬─────────┘
-                          │
-                    Validation
-                          │
-                          ▼
-                 ┌──────────────────┐
-                 │      Bronze      │
-                 │ Iceberg/Parquet  │
-                 └────────┬─────────┘
-                          │
-                  Clean + Validate
-                          │
-                          ▼
-                 ┌──────────────────┐
-                 │      Silver      │
-                 │ Iceberg/Parquet  │
-                 └────────┬─────────┘
-                          │
-                    Aggregate
-                          │
-                          ▼
-                 ┌──────────────────┐
-                 │       Gold       │
-                 │ Analytics-ready  │
-                 └────────┬─────────┘
-                          │
-              ┌───────────┴────────────┐
-              ▼                        ▼
-           Athena                 BI / Analytics
+Bronze
+   │
+   ├── Clean monetary values
+   ├── Normalize dates
+   ├── Handle nulls
+   ├── Remove duplicates
+   ├── Validate card/customer relationships
+   ├── Standardize merchant information
+   ├── Join MCC descriptions
+   ├── Apply fraud labels
+   └── Apply data-quality rules
+          │
+          ▼
+       Silver
+```
+
+Silver tables will also use Apache Iceberg.
+
+---
+
+# 26. Gold Layer — Planned
+
+The Gold layer will contain business and analytics-oriented datasets derived from Silver.
+
+Potential analytical models include:
+
+```text
+customer_transaction_summary
+merchant_transaction_summary
+fraud_transaction_summary
+daily_transaction_summary
+card_usage_summary
+fraud_by_merchant_category
+fraud_by_transaction_type
+```
+
+These datasets can then support:
+
+```text
+Amazon Athena
+BI dashboards
+Financial analytics
+Fraud analytics
+Machine learning
+Reporting
 ```
 
 ---
 
-# 12. Future Enhancements
+# 27. Current Implementation Status
 
-The project will be extended incrementally with:
+## Ingestion
 
 * [x] Kaggle dataset download
 * [x] Generic file discovery
-* [x] Configuration-based S3 destinations
+* [x] Configuration-based file mappings
 * [x] S3 Landing layer
-* [x] Date-partitioned ingestion
-* [ ] Pydantic schema validation
-* [ ] Parquet conversion
-* [ ] Apache Iceberg Bronze tables
-* [ ] Silver data cleaning
+* [x] Date-partitioned Landing ingestion
+* [x] Multiple source file support
+* [x] CSV ingestion
+* [x] JSON ingestion
+
+## Data Profiling
+
+* [x] Landing S3 file discovery
+* [x] CSV profiling
+* [x] JSON profiling
+* [x] Column inspection
+* [x] Data type inspection
+* [x] Null analysis
+* [x] Duplicate detection
+
+## Bronze
+
+* [x] AWS Glue jobs
+* [x] PySpark transformations
+* [x] Explicit Spark schemas
+* [x] Cards Landing → Bronze
+* [x] Transactions Landing → Bronze
+* [x] Bronze ingestion metadata
+* [x] Apache Iceberg tables
+* [x] Iceberg format version 2
+* [x] Parquet-backed storage
+* [x] `ingestion_date` partitioning
+* [x] AWS Glue Data Catalog integration
+
+## Planned
+
+* [ ] Incremental Iceberg append/upsert strategy
+* [ ] Users Landing → Bronze
+* [ ] MCC codes Landing → Bronze
+* [ ] Fraud labels Landing → Bronze
+* [ ] Silver transformation layer
 * [ ] Gold analytical models
-* [ ] AWS Glue Data Catalog
 * [ ] Amazon Athena querying
+* [ ] Pydantic field validation
+* [ ] Automated data quality framework
+* [ ] Quarantine/error handling
 * [ ] Apache Airflow orchestration
-* [ ] Automated data quality checks
 * [ ] Unit tests
 * [ ] Integration tests
 * [ ] CI/CD pipeline
-* [ ] CloudWatch monitoring and alerting
+* [ ] CloudWatch logging and monitoring
 * [ ] Infrastructure as Code
 
 ---
 
-# 13. Engineering Principles
+# 28. Current Limitation — Iceberg Incremental Loads
 
-The project aims to follow several production Data Engineering principles:
+The current Glue implementation creates the Bronze Iceberg tables using:
 
-**Separation of concerns**
+```python
+.writeTo(table_name)
+.using("iceberg")
+...
+.create()
+```
 
-Dataset download, file discovery, S3 key generation, upload, validation, and transformation are implemented as separate responsibilities.
+This is suitable for the **initial creation of the Iceberg table**.
 
-**Configuration over hardcoding**
+A production-style implementation must also handle subsequent ingestion runs.
 
-Dataset-specific configuration is separated from reusable pipeline logic.
+Future versions will introduce an incremental loading strategy such as:
 
-**Raw data preservation**
+```text
+First run
+    │
+    └── CREATE Iceberg table
 
-Original source data is retained in the Landing layer.
+Subsequent runs
+    │
+    ├── APPEND
+    │
+    └── or MERGE INTO
+```
 
-**Idempotency**
-
-Future versions of the pipeline will ensure rerunning an ingestion process does not unintentionally duplicate or corrupt data.
-
-**Observability**
-
-Structured logging, metrics, and pipeline monitoring will be introduced as the project evolves.
-
-**Testability**
-
-Core functions such as file discovery, S3 key generation, schema validation, and transformations are designed to be independently testable.
+The appropriate strategy will depend on whether the source represents append-only data or requires updates/deduplication.
 
 ---
 
-# 14. What This Project Demonstrates
+# 29. Engineering Principles
 
-FinGuard is intended to demonstrate practical experience with the complete lifecycle of a modern cloud Data Engineering pipeline:
+The project aims to demonstrate several production Data Engineering principles.
+
+### Separation of Concerns
+
+Dataset download, file discovery, S3 upload, profiling, schema definition and transformation are implemented as separate responsibilities.
+
+### Configuration Over Hardcoding
+
+Dataset-specific file mappings are separated from reusable ingestion logic.
+
+### Raw Data Preservation
+
+Original source data is retained in the Landing layer.
+
+### Explicit Schemas
+
+Bronze ingestion uses explicit Spark schemas rather than depending entirely on automatic schema inference.
+
+### Data Lineage
+
+Metadata fields such as:
 
 ```text
-Source ingestion
+ingestion_date
+source_file
+bronze_ingestion_timestamp
+```
+
+allow Bronze records to be traced back to their source ingestion.
+
+### Open Table Formats
+
+Apache Iceberg provides a managed table abstraction over Parquet data stored in Amazon S3.
+
+### Idempotency
+
+Future pipeline versions will ensure that rerunning ingestion and transformation jobs does not unintentionally duplicate or corrupt data.
+
+### Observability
+
+Structured logging, metrics, Glue job monitoring and CloudWatch integration will be introduced as the pipeline evolves.
+
+### Testability
+
+Core ingestion and transformation components should be independently testable.
+
+---
+
+# 30. Target Architecture
+
+The longer-term target architecture is:
+
+```text
+                           Kaggle
+                              │
+                              ▼
+                       Python Ingestion
+                              │
+                              ▼
+                   ┌─────────────────────┐
+                   │     S3 Landing      │
+                   │     CSV / JSON      │
+                   └──────────┬──────────┘
+                              │
+                       Data Profiling
+                              │
+                              ▼
+                        AWS Glue
+                         PySpark
+                              │
+                              ▼
+                   ┌─────────────────────┐
+                   │       Bronze        │
+                   │                     │
+                   │ Apache Iceberg v2   │
+                   │      Parquet        │
+                   └──────────┬──────────┘
+                              │
+                       Clean / Validate
+                              │
+                              ▼
+                   ┌─────────────────────┐
+                   │       Silver        │
+                   │                     │
+                   │ Apache Iceberg      │
+                   └──────────┬──────────┘
+                              │
+                         Aggregate
+                              │
+                              ▼
+                   ┌─────────────────────┐
+                   │        Gold         │
+                   │                     │
+                   │ Analytics Models    │
+                   └──────────┬──────────┘
+                              │
+                ┌─────────────┴──────────────┐
+                │                            │
+                ▼                            ▼
+          Amazon Athena                 BI / Analytics
+                │
+                ▼
+       Reporting / Fraud Analysis
+```
+
+---
+
+# 31. What This Project Demonstrates
+
+FinGuard demonstrates the progressive development of a cloud Data Engineering platform rather than simply uploading files to S3.
+
+The project covers the data lifecycle:
+
+```text
+External Dataset
        ↓
-Cloud storage
+Data Ingestion
        ↓
-Data modelling
+Cloud Object Storage
        ↓
-Schema validation
+Data Profiling
        ↓
-Data quality
+Distributed Processing
        ↓
-Table formats
+Schema Enforcement
+       ↓
+Data Lineage
+       ↓
+Apache Iceberg
+       ↓
+Data Catalog
+       ↓
+Data Quality
        ↓
 Transformation
-       ↓
-Orchestration
        ↓
 Analytics
        ↓
 Monitoring
 ```
 
-Rather than focusing only on moving a CSV file into S3, the project progressively develops the ingestion process into a reusable, observable, testable, and production-style Data Engineering platform.
+The goal is to progressively evolve the pipeline into a **reusable, scalable, observable and production-style AWS Data Engineering platform**.
